@@ -44,8 +44,6 @@ TODO:
 #define DEFAULT_HOST        "localhost"
 #define MAX_HOSTNAME_LENGTH 256
 #define BUFFER_SIZE         256
-#define ERR_ARGLO           1
-#define ERR_COMD            2
 
 /******************************************************************************
 
@@ -214,9 +212,7 @@ int main(int argc, char** argv) {
   while(true) {
     printf("Enter command (dl filename, list or exit): ");
 
-    if (fgets(buffer, BUFFER_SIZE-1, stdin) == NULL) {
-      printf("Client: An error eccurred\n");
-    }
+    fgets(buffer, BUFFER_SIZE-1, stdin);
 
     buffer[strlen(buffer)-1] = '\0';
 
@@ -227,31 +223,20 @@ int main(int argc, char** argv) {
     } else {
       nbytes_written = SSL_write(ssl, buffer, strlen(buffer));
       if (nbytes_written < 0) {
-        fprintf(stderr, "Client: Could not write message to socket: %s\n", strerror(errno));
+        fprintf(stderr, "Client: Could not write message to socket: %s\n",
+                strerror(errno));
         exit(EXIT_FAILURE);
       }
-      printf("Client: Message sent to server: ");
-      puts(buffer);
-      memset(buffer, 0, sizeof(buffer));
+
       //bzero(buffer, BUFFER_SIZE);
       nbytes_read = SSL_read(ssl, buffer, BUFFER_SIZE);
       int ret;
       int retmsg = sscanf(buffer, "%s %s %d", checkmsg, file, &ret);
       int writecount = 0;
-      // receives error from server
       printf("Return message: %s %s\n", checkmsg, file);
       if(strcmp(checkmsg, "error") == 0){
             fprintf(stderr, "Client: Could not retrieve file: %s\n", strerror(ret));
-      } else if (strcmp(checkmsg, "othererr") == 0) {
-      //receives more errors from server
-	if (ret == ERR_ARGLO){
-	  printf("Client: Error: Too Few Arguments.\n");
-	} else if (ret == ERR_COMD) {
-	  printf("Client: Error: Invalid Command.\n");
-	} else {
-	  printf("Client: Error: An Unexpected Error Occurred.\n");
-	}
-      //receives list from server
+      //recieves list from server
       } else if (strcmp(checkmsg, "list") == 0) {
         printf("Client: MP3 listing from server\n");
         do{ // loop for recieving mp3 list from server
@@ -259,7 +244,9 @@ int main(int argc, char** argv) {
           memset(buffer, 0, sizeof(buffer));
           nbytes_read = SSL_read(ssl, buffer, BUFFER_SIZE);
           retmsg = sscanf(buffer, "%s %s", checkmsg, file);
-          if(strcmp(checkmsg, "end") == 0){ break; }
+          if(strcmp(checkmsg, "end") == 0){
+            break;
+          }
         } while (nbytes_read != 0);
         printf("Client: End of List\n");
       } else if (strcmp(checkmsg, "dl") == 0){
@@ -269,26 +256,18 @@ int main(int argc, char** argv) {
           fprintf(stderr, "Client: Could not create file '%s': %s\n", filename, strerror(errno));
         } else {
           printf("receiving file...\n");
-          memset(buffer, 0, sizeof(buffer));
-          int writecount = 0;
-           do {
+          while (nbytes_read != 0){
             nbytes_read = SSL_read(ssl, buffer, BUFFER_SIZE);
-            printf("value of nbytes_read: %d\n", nbytes_read);
-            printf("writing\n");
             wcount = write(destfd, buffer, nbytes_read);
-            writecount += wcount;
             if(wcount < 0){
               fprintf(stderr, "Client: Error writing to file '%s': %s\n", file, strerror(errno));
               break;
             }
-            printf("received: %d, total wrote: %d\n", nbytes_read, writecount);
-            //memset(buffer, 0, sizeof(buffer));
-            } while (nbytes_read > 0) ;
+            writecount += wcount;
+          }
           printf("Client: Successfully transferred file '%s' (%d bytes) from server\n", file, writecount);
         }
         close(destfd);
-      } else {
-        printf("Something strange happened\n");
       }
     }
     memset(buffer, 0, sizeof(buffer));
