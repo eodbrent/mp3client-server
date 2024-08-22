@@ -1,7 +1,7 @@
 /******************************************************************************
 
 PROGRAM:  ssl-mp3client.c
-AUTHOR:
+AUTHOR:  Brent K (Hennes did SSL)
 COURSE:   CS469 - Distributed Systems (Regis University)
 SYNOPSIS:
 
