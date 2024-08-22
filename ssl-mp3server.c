@@ -1,12 +1,8 @@
 /******************************************************************************
 
 PROGRAM:  ssl-mp3server.c
+AUTHOR:  Brent K (Hennes did SSL)
 SYNOPSIS:
-**CHANGE dir_path VARIABLE inside handle_client function to relative folder of
-  mp3 files for testing/use
-
-**currently disconnects client after any command is recieved. Just needs a
-  simple loop in the handle_client function
 compile command (or run with included Makefile)
 gcc ssl-mp3server.c -o ssl-mp3server -lssl -lcrypto -pthread
 
@@ -33,8 +29,6 @@ TODO:
 #define DEFAULT_PORT      4433
 #define CERTIFICATE_FILE  "cert.pem"
 #define KEY_FILE          "key.pem"
-#define ERR_ARGLO	  1
-#define ERR_COMD          2
 
 //struct for client information
 // client_addr and port are only necessary for server monitoring
@@ -239,19 +233,8 @@ void* handle_client(void* arg) {
             char cmd[256];
             char fname[256];
             char filler[256];
-	          memset(cmd, 0, sizeof(cmd));
-            memset(fname, 0, sizeof(fname));
-            memset(filler, 0, sizeof(filler));
-
             printf("Waiting for message\n");
             nbytes_read = SSL_read(ssl, buffer, BUFFER_SIZE);
-	    //printf("Bytes Read: %d\n", nbytes_read);
-     	    if (nbytes_read < 0) {
-        	fprintf(stderr, "Client: Could not write message to socket: %s\n", strerror(errno));
-        	exit(EXIT_FAILURE);
-            }
-	          printf("Server received message: ");
-	          puts(buffer);
             int message = sscanf(buffer, "%s %s %s", cmd, fname, filler);
             printf("Message info: message = %d, cmd = %s, fname = %s, filler = %s\n", message, cmd, fname, filler);
             //maximum of two strings allowed in message
@@ -259,20 +242,10 @@ void* handle_client(void* arg) {
             //"list"
             //"dl audio.mp3"
             if (message > 2) {
-          		//too many args
-          		memset(buffer, 0, sizeof(buffer));
-              sprintf(buffer, "error fill %d", 7); //error back to client
-              fprintf(stderr, "Server: Error: %s\n", strerror(7));
-              if (SSL_write(ssl, buffer, strlen(buffer)) < 0)
-                fprintf(stderr, "Server: Error sending message: %s\n", strerror(errno));
-            } else if ((message < 1) || (strlen(buffer) < 1)) {
-          		//too few args or empty
-          		memset(buffer, 0, sizeof(buffer));
-          		printf("Server: Error: Too few arguments.\n");
-          		sprintf(buffer, "othererr fill %d", ERR_ARGLO);
-              if (SSL_write(ssl, buffer, strlen(buffer)) < 0){
-                fprintf(stderr, "Server: Error sending message: %s\n", strerror(errno));
-              }
+                sprintf(buffer, "error fill %d", 7); //error back to client
+                fprintf(stderr, "Server: Error: %s\n", strerror(7));
+                if (SSL_write(ssl, buffer, strlen(buffer)) < 0)
+                    fprintf(stderr, "Server: Error sending message: %s\n", strerror(errno));
             } else {
               if(strcmp(cmd, "exit") == 0){
                 //for no loop
@@ -341,18 +314,13 @@ void* handle_client(void* arg) {
                       printf("trying to transfer\n");
                       //loop data transfer
                       printf("sending msg to prep client\n");
-                      memset(buffer, 0, sizeof(buffer));
                       sprintf(buffer, "dl");
-                      SSL_write(ssl, buffer, strlen(buffer));
                       memset(buffer, 0, sizeof(buffer));
-                      int sentcount = 0;
-                      while (rcount > 0) {
+                      while (rcount > 0){
+                        printf("transferring, i think...\n");
                         rcount = read(sourcefd, buffer, BUFFER_SIZE);
                         nbytes_written = SSL_write(ssl, buffer, rcount);
-                        sentcount += nbytes_written;
-                        printf("read: %d bytes, total transferred: %d bytes\n", rcount, sentcount);
                       }
-                      memset(buffer, 0, sizeof(buffer));
                       close(sourcefd);
                     }
                 } else {
@@ -362,14 +330,7 @@ void* handle_client(void* arg) {
                   if (SSL_write(ssl, buffer, strlen(buffer)) < 0)
                     fprintf(stderr, "Server: Error sending message: %s\n", strerror(errno));
                 }
-	      } else {
-		memset(buffer, 0, sizeof(buffer));
-	        printf("Server: Error: Invalid command.\n");
-                sprintf(buffer, "othererr fill %d", ERR_COMD);
-                if (SSL_write(ssl, buffer, strlen(buffer)) < 0){
-                  fprintf(stderr, "Server: Error sending message: %s\n", strerror(errno));
-                }
-	      }
+              }
             }
             memset(buffer, 0, sizeof(buffer));
           }
